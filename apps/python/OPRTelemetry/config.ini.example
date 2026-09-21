@@ -1,0 +1,31 @@
+; Un bloque [backend:nombre] por destino. La app detecta el servidor de AC al
+; que entras y manda la telemetria al destino cuyo `server` coincida. Si ninguno
+; coincide usa el que tenga `server = *`. Ademas, el boton "Cambiar destino" de
+; la ventana permite elegir uno a mano.
+;
+; Cada backend tiene su propio token (un token solo sirve en su backend).
+;
+; server = lista separada por comas de: IP, IP:puerto_http, o parte del nombre
+; del servidor (sin distinguir mayusculas). "*" = cualquier otro servidor.
+; Al entrar a un servidor la app escribe en el log de AC (py_log.txt) la IP,
+; el puerto y el nombre detectados: usa esos valores.
+
+[backend:opr]
+url = https://tu-dominio-de-opr
+token =
+server = Open Paddock
+
+[backend:graficas]
+url = http://localhost:5000
+token =
+server = *
+
+[telemetry]
+; Cada cuantos milisegundos se manda un paquete (100-150 recomendado).
+send_interval_ms = 120
+
+; Timeout de cada request HTTP, en segundos.
+timeout_seconds = 2.0
+
+; 1 = escribe en el log de AC el resultado de cada envio (nunca el token).
+debug = 0

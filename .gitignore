@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+apps/python/OPRTelemetry/config.ini
+apps/python/OPRTelemetry/last_backend.txt
+dist/
