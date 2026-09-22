@@ -60,6 +60,8 @@ _TAG = "Local\\acpmf_physics"
 _MAP_SIZE = 512          # sobra para llegar al offset 208..220
 _OFF_HEADING = 208
 _OFF_FUEL = 12
+_OFF_ACC_G = 44          # accG[3]: x = lateral, y = vertical, z = longitudinal (G)
+_OFF_PRESSURE = 88       # wheelsPressure[4]: FL, FR, RL, RR (psi)
 _OFF_TYRE_CORE = 152     # tyreCoreTemperature[4]: FL, FR, RL, RR (°C)
 
 _TAG_STATIC = "Local\\acpmf_static"
@@ -103,13 +105,18 @@ def heading_pitch_roll():
         return None
 
 
-def fuel_and_tyres():
-    """(litros, (FL, FR, RL, RR) temp. de nucleo °C), o None sin memoria compartida."""
+def extras():
+    """(litros, temp. nucleo x4 °C, presion x4 psi, (G lat, G long)), o None sin memoria compartida.
+    Ruedas en orden FL, FR, RL, RR."""
     _open()
     if _mm is None:
         return None
     try:
-        return struct.unpack_from("<f", _mm, _OFF_FUEL)[0], struct.unpack_from("<ffff", _mm, _OFF_TYRE_CORE)
+        acc = struct.unpack_from("<fff", _mm, _OFF_ACC_G)
+        return (struct.unpack_from("<f", _mm, _OFF_FUEL)[0],
+                struct.unpack_from("<ffff", _mm, _OFF_TYRE_CORE),
+                struct.unpack_from("<ffff", _mm, _OFF_PRESSURE),
+                (acc[0], acc[2]))
     except (OSError, ValueError, struct.error):
         close()
         return None

@@ -2,8 +2,8 @@
 
 App Python para **Assetto Corsa** (se instala con Content Manager o a mano) que lee la
 telemetría de **tu auto** y la envía cada ~120 ms por HTTP a un backend: pedales, marcha,
-rpm y su límite, velocidad, dirección, posición, rotación, tiempo de vuelta en curso,
-combustible y temperatura de gomas. Nace para el live-map de
+rpm y su límite, velocidad, dirección, posición, rotación, fuerzas G, tiempo de vuelta en
+curso, combustible y temperatura y presión de gomas. Nace para el live-map de
 [Open Paddock Racing League](https://github.com/reiL-0), pero funciona con cualquier
 backend que implemente el [contrato](#contrato-del-endpoint).
 
@@ -103,6 +103,8 @@ Además envía estos campos; un backend puede ignorarlos:
 | `rpmMax` | límite de RPM del auto (`acpmf_static`); 0 si no se pudo leer |
 | `fuel` | combustible en litros (`acpmf_physics`) |
 | `tyreTemp` | temperatura de núcleo de las gomas `[FL, FR, RL, RR]` en °C (`acpmf_physics`) |
+| `tyrePress` | presión de las gomas `[FL, FR, RL, RR]` en psi (`acpmf_physics`) |
+| `gLat`, `gLong` | fuerzas G lateral y longitudinal (`acpmf_physics`) |
 
 | Código | Significado | Reacción de la app |
 |---|---|---|
@@ -149,9 +151,10 @@ Para publicar una versión nueva, sube `VERSION` en `manifest.ini` y vuelve a co
 - **HTTPS**: el Python de AC no verifica certificados (OpenSSL viejo). Funciona contra
   endpoints TLS 1.2; si un túnel falla desde el juego, prueba `http://` o LAN directa.
 - La rotación no está en el módulo `ac`: sale de `acpmf_physics` (offset 208). Fuera de
-  Windows/AC se envía en ceros. Del mismo bloque salen el combustible (offset 12) y la
-  temperatura de gomas (offset 152); el límite de RPM sale de `acpmf_static` (offset 412,
-  ver la tabla de offsets en `opr_mmap.py`).
+  Windows/AC se envía en ceros. Del mismo bloque salen el combustible (offset 12), las
+  fuerzas G (offset 44), la presión (offset 88) y la temperatura de gomas (offset 152);
+  el límite de RPM sale de `acpmf_static` (offset 412, ver la tabla de offsets en
+  `opr_mmap.py`).
 
 ## Licencia
 

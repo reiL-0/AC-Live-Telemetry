@@ -50,6 +50,9 @@ def sample(t, steam_id=""):
         "lapTimeMs": int((t % LAP_S) * 1000 * pace),
         "fuel": round(max(0.0, 60 - t * 0.19), 2),   # ~3.8 L por vuelta
         "tyreTemp": [round(heat + 6, 1), round(heat + 2, 1), round(heat - 5, 1), round(heat - 7, 1)],
+        "tyrePress": [27.8, 28.1, 27.2, 27.4],       # psi
+        "gLat": round(1.4 * math.sin(ang * 2), 2),
+        "gLong": round(1.2 * s, 2),
         "car": "probe_car",
         "track": "probe_track",
         "trackLen": 1256.6,                    # circulo de radio 200 m
