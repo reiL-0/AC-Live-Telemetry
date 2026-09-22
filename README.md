@@ -2,7 +2,8 @@
 
 App Python para **Assetto Corsa** (se instala con Content Manager o a mano) que lee la
 telemetría de **tu auto** y la envía cada ~120 ms por HTTP a un backend: pedales, marcha,
-rpm, velocidad, dirección, posición y rotación. Nace para el live-map de
+rpm y su límite, velocidad, dirección, posición, rotación, tiempo de vuelta en curso,
+combustible y temperatura de gomas. Nace para el live-map de
 [Open Paddock Racing League](https://github.com/reiL-0), pero funciona con cualquier
 backend que implemente el [contrato](#contrato-del-endpoint).
 
@@ -20,8 +21,9 @@ hilo worker ── POST <url>/api/telemetry/ingest   Authorization: Bearer <toke
   identidad del piloto la decide el backend a partir del **token**, no el JSON.
 - **Nunca bloquea el juego.** El envío corre en un hilo aparte con un único slot: si la red
   falla o tarda, se pierde ese sample, no se acumula cola.
-- **No manda tiempos.** Vueltas, sectores y posición de carrera no salen de acá; solo
-  telemetría instantánea del auto.
+- **No es el cronometraje oficial.** Manda el reloj de vuelta que ve tu AC (para
+  gráficas y delta), pero los tiempos oficiales, sectores y posición de carrera siguen
+  saliendo del leaderboard del servidor.
 - **Varios destinos.** Al unirte a un servidor de AC la app elige a qué backend enviar
   según su IP, puerto HTTP o nombre (ver [Configuración](#configuración)).
 
@@ -90,8 +92,17 @@ Content-Type: application/json
 }
 ```
 
-Además envía `steamId` (SteamID64 leído del registro de Windows), `lap`, `spline`,
-`lastLapMs`, `car` y `track`; un backend puede ignorarlos.
+Además envía estos campos; un backend puede ignorarlos:
+
+| Campo | Qué es |
+|---|---|
+| `steamId` | SteamID64 leído del registro de Windows |
+| `lap`, `spline` | vueltas completadas y posición en pista (0..1) |
+| `lastLapMs`, `lapTimeMs`, `bestLapMs` | última vuelta, vuelta en curso y mejor de la sesión (ms, reloj de AC) |
+| `car`, `track`, `trackLen` | auto, pista/configuración y largo de pista en metros |
+| `rpmMax` | límite de RPM del auto (`acpmf_static`); 0 si no se pudo leer |
+| `fuel` | combustible en litros (`acpmf_physics`) |
+| `tyreTemp` | temperatura de núcleo de las gomas `[FL, FR, RL, RR]` en °C (`acpmf_physics`) |
 
 | Código | Significado | Reacción de la app |
 |---|---|---|
@@ -108,7 +119,7 @@ apps/python/OPRTelemetry/       <- la carpeta que se instala en AC
   OPRTelemetry.py               entry points de AC (acMain / acUpdate / acShutdown)
   opr_config.py                 lee config.ini (lo crea si no existe) y elige destino
   opr_telemetry.py              arma el JSON desde ac.getCarState + opr_mmap
-  opr_mmap.py                   heading/pitch/roll desde acpmf_physics
+  opr_mmap.py                   memoria compartida: orientación, combustible, gomas, límite de RPM
   opr_sender.py                 hilo worker + slot + POST HTTP
   manifest.ini                  nombre y versión
   config.ini.example            plantilla (el config.ini real está gitignoreado)
@@ -138,7 +149,9 @@ Para publicar una versión nueva, sube `VERSION` en `manifest.ini` y vuelve a co
 - **HTTPS**: el Python de AC no verifica certificados (OpenSSL viejo). Funciona contra
   endpoints TLS 1.2; si un túnel falla desde el juego, prueba `http://` o LAN directa.
 - La rotación no está en el módulo `ac`: sale de `acpmf_physics` (offset 208). Fuera de
-  Windows/AC se envía en ceros.
+  Windows/AC se envía en ceros. Del mismo bloque salen el combustible (offset 12) y la
+  temperatura de gomas (offset 152); el límite de RPM sale de `acpmf_static` (offset 412,
+  ver la tabla de offsets en `opr_mmap.py`).
 
 ## Licencia
 

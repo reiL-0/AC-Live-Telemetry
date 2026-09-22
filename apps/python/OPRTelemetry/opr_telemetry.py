@@ -20,7 +20,7 @@ import opr_mmap
 
 _STEAM64_BASE = 76561197960265728
 _steam_id = ""
-_ident = None  # (auto, pista); no cambia durante la sesion
+_ident = None  # (auto, pista, largo_m); no cambia durante la sesion
 
 
 def _r(v, n):
@@ -46,7 +46,11 @@ def _car_track(car_id):
     if _ident is None:
         track = ac.getTrackName(car_id)
         cfg = ac.getTrackConfiguration(car_id)
-        _ident = (ac.getCarName(car_id), track + "/" + cfg if cfg else track)
+        try:
+            length = float(ac.getTrackLength(car_id) or 0.0)   # metros
+        except Exception:
+            length = 0.0
+        _ident = (ac.getCarName(car_id), track + "/" + cfg if cfg else track, length)
     return _ident
 
 
@@ -75,7 +79,11 @@ def read(car_id=0):
     lap = ac.getCarState(car_id, acsys.CS.LapCount) or 0
     spline = ac.getCarState(car_id, acsys.CS.NormalizedSplinePosition) or 0.0
     last_lap = ac.getCarState(car_id, acsys.CS.LastLap) or 0   # ms
-    car, track = _car_track(car_id)
+    lap_time = ac.getCarState(car_id, acsys.CS.LapTime) or 0   # ms de la vuelta en curso
+    best_lap = ac.getCarState(car_id, acsys.CS.BestLap) or 0   # ms, mejor de la sesion
+    ft = opr_mmap.fuel_and_tyres()
+    fuel, tyres = ft if ft is not None else (0.0, (0.0, 0.0, 0.0, 0.0))
+    car, track, track_len = _car_track(car_id)
 
     hpr = opr_mmap.heading_pitch_roll()
     heading, pitch, roll = hpr if hpr is not None else (0.0, 0.0, 0.0)
@@ -90,13 +98,19 @@ def read(car_id=0):
         "brake": _r(brake, 3),
         "clutch": _r(clutch, 3),
         "steerAngle": _r(steer, 2),
+        "rpmMax": int(opr_mmap.max_rpm()),   # limite del auto actual; 0 si no se pudo leer
         # extras para el backend de graficas (el backend de OPR WP los ignora)
         "steamId": _steam(),
         "lap": int(lap),
         "spline": _r(spline, 4),
         "lastLapMs": int(last_lap),
+        "lapTimeMs": int(lap_time),
+        "bestLapMs": int(best_lap),
+        "fuel": _r(fuel, 2),                          # litros; 0 fuera de AC
+        "tyreTemp": [_r(t, 1) for t in tyres],        # FL, FR, RL, RR (°C, nucleo)
         "car": car,
         "track": track,
+        "trackLen": _r(track_len, 1),         # metros; 0 si AC no lo dio
     }
 
 

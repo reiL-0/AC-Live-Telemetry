@@ -24,23 +24,35 @@ LAP_S = 20.0  # segundos por vuelta sintetica
 
 def sample(t, steam_id=""):
     ang = t * 0.6
+    s = math.sin(ang * 3)                      # >0 acelera, <0 frena
+    speed = 150 + 90 * s
+    gear = 2 + min(5, int(speed // 50))        # 0=R, 1=N, 2=1a...
+    rpm = 3500 + 4800 * ((speed % 50) / 50)    # sube dentro de cada marcha, cae al cambiar
+    lap = int(t // LAP_S)
+    pace = 1 + 0.01 * math.sin(lap * 1.7)      # cada vuelta +-1% mas lenta/rapida: el delta se mueve
+    heat = 70 + 25 * max(0.0, -s)              # las gomas se calientan al frenar
     return {
         "pos": {"x": round(200 * math.cos(ang), 3), "y": 0.0,
                 "z": round(200 * math.sin(ang), 3)},
         "rotation": {"x": round((ang + math.pi / 2) % (2 * math.pi), 4), "y": 0.0, "z": 0.0},
-        "speedKmh": 187.0,
-        "gear": 4,
-        "rpm": 6200,
-        "throttle": round(0.5 + 0.5 * math.sin(ang * 3), 3),
-        "brake": 0.0,
+        "speedKmh": round(speed, 1),
+        "gear": gear,
+        "rpm": int(rpm),
+        "rpmMax": 8500,
+        "throttle": round(max(0.0, s), 3),
+        "brake": round(max(0.0, -s) * 0.9, 3),
         "clutch": 1.0,
-        "steerAngle": round(12 * math.sin(ang), 2),
+        "steerAngle": round(90 * math.sin(ang * 2), 2),
         "steamId": steam_id,
-        "lap": int(t // LAP_S),
+        "lap": lap,
         "spline": round((t % LAP_S) / LAP_S, 4),
         "lastLapMs": int(LAP_S * 1000) if t >= LAP_S else 0,
+        "lapTimeMs": int((t % LAP_S) * 1000 * pace),
+        "fuel": round(max(0.0, 60 - t * 0.19), 2),   # ~3.8 L por vuelta
+        "tyreTemp": [round(heat + 6, 1), round(heat + 2, 1), round(heat - 5, 1), round(heat - 7, 1)],
         "car": "probe_car",
         "track": "probe_track",
+        "trackLen": 1256.6,                    # circulo de radio 200 m
     }
 
 
