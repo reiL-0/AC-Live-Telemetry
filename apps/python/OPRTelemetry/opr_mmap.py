@@ -29,6 +29,8 @@ Offsets de SPageFilePhysics (todos los campos son 4 bytes, sin padding):
     208 float heading   <-- aca
     212 float pitch
     216 float roll
+    348 float brakeTemp[4]
+    368 float tyreTempI[4] / 384 tyreTempM[4] / 400 tyreTempO[4]
 
 Tambien leemos `acpmf_static` (SPageFileStatic) para el limite de RPM del auto
 actual - no todos los autos tienen el mismo. Ahi los campos son mixtos
@@ -62,7 +64,16 @@ _OFF_HEADING = 208
 _OFF_FUEL = 12
 _OFF_ACC_G = 44          # accG[3]: x = lateral, y = vertical, z = longitudinal (G)
 _OFF_PRESSURE = 88       # wheelsPressure[4]: FL, FR, RL, RR (psi)
+_OFF_TYRE_WEAR = 120     # tyreWear[4]: FL, FR, RL, RR (escala de AC, ~100 = nuevo)
+_OFF_SUSP = 184          # suspensionTravel[4]: FL, FR, RL, RR (metros)
 _OFF_TYRE_CORE = 152     # tyreCoreTemperature[4]: FL, FR, RL, RR (°C)
+
+_OFF_BRAKE_TEMP = 348    # brakeTemp[4] (°C)
+_OFF_TYRE_I, _OFF_TYRE_M, _OFF_TYRE_O = 368, 384, 400   # tyreTempI/M/O[4]: cara interna / media / externa (°C)
+
+_TAG_GFX = "Local\\acpmf_graphics"
+_MAP_SIZE_GFX = 512
+_OFF_COMPOUND = 176      # wchar_t tyreCompound[33]
 
 _TAG_STATIC = "Local\\acpmf_static"
 _MAP_SIZE_STATIC = 800   # sobra para llegar al offset 412..416
@@ -70,6 +81,7 @@ _OFF_MAX_RPM = 412
 
 _mm = None
 _mm_static = None
+_mm_gfx = None
 
 
 def _open():
@@ -106,20 +118,36 @@ def heading_pitch_roll():
 
 
 def extras():
-    """(litros, temp. nucleo x4 °C, presion x4 psi, (G lat, G long)), o None sin memoria compartida.
-    Ruedas en orden FL, FR, RL, RR."""
+    """Dict con lo que la app manda ademas de lo basico, o None sin memoria compartida.
+    Ruedas en orden FL, FR, RL, RR; core/I/M/O en °C, presion en psi, suspension en m."""
     _open()
     if _mm is None:
         return None
     try:
+        wheels = lambda off: struct.unpack_from("<ffff", _mm, off)
         acc = struct.unpack_from("<fff", _mm, _OFF_ACC_G)
-        return (struct.unpack_from("<f", _mm, _OFF_FUEL)[0],
-                struct.unpack_from("<ffff", _mm, _OFF_TYRE_CORE),
-                struct.unpack_from("<ffff", _mm, _OFF_PRESSURE),
-                (acc[0], acc[2]))
+        return {"fuel": struct.unpack_from("<f", _mm, _OFF_FUEL)[0], "acc": (acc[0], acc[2]),
+                "tyre": wheels(_OFF_TYRE_CORE), "press": wheels(_OFF_PRESSURE), "wear": wheels(_OFF_TYRE_WEAR),
+                "susp": wheels(_OFF_SUSP), "brake": wheels(_OFF_BRAKE_TEMP),
+                "tyreI": wheels(_OFF_TYRE_I), "tyreM": wheels(_OFF_TYRE_M), "tyreO": wheels(_OFF_TYRE_O)}
     except (OSError, ValueError, struct.error):
         close()
         return None
+
+
+def compound():
+    """Nombre del compuesto montado (SPageFileGraphic.tyreCompound), o "" si no se pudo leer."""
+    global _mm_gfx
+    if _mm_gfx is None and mmap is not None:
+        try:
+            _mm_gfx = mmap.mmap(-1, _MAP_SIZE_GFX, _TAG_GFX, mmap.ACCESS_READ)
+        except (OSError, ValueError, TypeError):
+            return ""
+    try:
+        return _mm_gfx[_OFF_COMPOUND:_OFF_COMPOUND + 66].decode("utf-16-le").split("\x00")[0]
+    except (OSError, ValueError, TypeError):
+        close()
+        return ""
 
 
 def max_rpm():
@@ -136,11 +164,11 @@ def max_rpm():
 
 
 def close():
-    global _mm, _mm_static
-    for mm in (_mm, _mm_static):
+    global _mm, _mm_static, _mm_gfx
+    for mm in (_mm, _mm_static, _mm_gfx):
         try:
             if mm is not None:
                 mm.close()
         except Exception:
             pass
-    _mm = _mm_static = None
+    _mm = _mm_static = _mm_gfx = None

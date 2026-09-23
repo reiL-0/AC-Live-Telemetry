@@ -83,7 +83,9 @@ def read(car_id=0):
     best_lap = ac.getCarState(car_id, acsys.CS.BestLap) or 0   # ms, mejor de la sesion
     ex = opr_mmap.extras()
     zero4 = (0.0, 0.0, 0.0, 0.0)
-    fuel, tyres, press, acc = ex if ex is not None else (0.0, zero4, zero4, (0.0, 0.0))
+    ex = ex or {}
+    g = lambda k: ex.get(k, zero4)
+    acc = ex.get("acc", (0.0, 0.0))
     car, track, track_len = _car_track(car_id)
 
     hpr = opr_mmap.heading_pitch_roll()
@@ -107,9 +109,16 @@ def read(car_id=0):
         "lastLapMs": int(last_lap),
         "lapTimeMs": int(lap_time),
         "bestLapMs": int(best_lap),
-        "fuel": _r(fuel, 2),                          # litros; 0 fuera de AC
-        "tyreTemp": [_r(t, 1) for t in tyres],        # FL, FR, RL, RR (°C, nucleo)
-        "tyrePress": [_r(p, 2) for p in press],       # FL, FR, RL, RR (psi)
+        "fuel": _r(ex.get("fuel", 0.0), 2),                          # litros; 0 fuera de AC
+        "tyreTemp": [_r(t, 1) for t in g("tyre")],        # FL, FR, RL, RR (°C, nucleo)
+        "tyrePress": [_r(p, 2) for p in g("press")],       # FL, FR, RL, RR (psi)
+        "tyreWear": [_r(w, 2) for w in g("wear")],         # FL, FR, RL, RR (escala AC, ~100 = nuevo)
+        "suspTravel": [_r(t, 4) for t in g("susp")],       # FL, FR, RL, RR (metros)
+        "tyreTempI": [_r(t, 1) for t in g("tyreI")],   # cara interna / media / externa (°C)
+        "tyreTempM": [_r(t, 1) for t in g("tyreM")],
+        "tyreTempO": [_r(t, 1) for t in g("tyreO")],
+        "brakeTemp": [_r(t, 0) for t in g("brake")],   # °C
+        "tyreCompound": opr_mmap.compound(),
         "gLat": _r(acc[0], 2),
         "gLong": _r(acc[1], 2),
         "car": car,

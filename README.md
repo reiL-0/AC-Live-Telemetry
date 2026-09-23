@@ -133,6 +133,11 @@ Además envía estos campos; un backend puede ignorarlos:
 | `fuel` | combustible en litros (`acpmf_physics`) |
 | `tyreTemp` | temperatura de núcleo de las gomas `[FL, FR, RL, RR]` en °C (`acpmf_physics`) |
 | `tyrePress` | presión de las gomas `[FL, FR, RL, RR]` en psi (`acpmf_physics`) |
+| `tyreWear` | desgaste de las gomas `[FL, FR, RL, RR]`, escala de AC (~100 = nuevo) (`acpmf_physics`) |
+| `suspTravel` | recorrido de suspensión `[FL, FR, RL, RR]` en metros (`acpmf_physics`) |
+| `tyreTempI`, `tyreTempM`, `tyreTempO` | temperatura de la cara interna / media / externa de cada goma, en °C (`acpmf_physics`) |
+| `brakeTemp` | temperatura de frenos `[FL, FR, RL, RR]` en °C (`acpmf_physics`) |
+| `tyreCompound` | compuesto montado (`acpmf_graphics`) |
 | `gLat`, `gLong` | fuerzas G lateral y longitudinal (`acpmf_physics`) |
 
 | Código | Significado | Reacción de la app |

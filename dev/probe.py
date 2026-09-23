@@ -50,7 +50,14 @@ def sample(t, steam_id=""):
         "lapTimeMs": int((t % LAP_S) * 1000 * pace),
         "fuel": round(max(0.0, 60 - t * 0.19), 2),   # ~3.8 L por vuelta
         "tyreTemp": [round(heat + 6, 1), round(heat + 2, 1), round(heat - 5, 1), round(heat - 7, 1)],
+        "tyreTempI": [round(heat + 9 - i, 1) for i in (0, 1, 2, 3)],      # cara interna mas caliente que la externa
+        "tyreTempM": [round(heat + 6 - i * 2, 1) for i in (0, 1, 2, 3)],
+        "tyreTempO": [round(heat - 4 - i, 1) for i in (0, 1, 2, 3)],
+        "brakeTemp": [int(150 + 600 * max(0.0, -s) - i * 40) for i in (0, 1, 2, 3)],
+        "tyreCompound": "SM",
         "tyrePress": [27.8, 28.1, 27.2, 27.4],       # psi
+        "tyreWear": [round(98.5 - t * 0.02 - i * 0.3, 2) for i in range(4)],   # escala AC, ~100 = nuevo
+        "suspTravel": [round(0.05 + 0.02 * math.sin(ang * 4 + i) + 0.01 * max(0.0, s), 4) for i in range(4)],   # m
         "gLat": round(1.4 * math.sin(ang * 2), 2),
         "gLong": round(1.2 * s, 2),
         "car": "probe_car",
