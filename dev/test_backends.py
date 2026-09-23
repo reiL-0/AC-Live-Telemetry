@@ -66,6 +66,22 @@ with open(os.path.join(d2, "config.ini"), "w") as f:
 old = opr_config.load(d2).backends
 assert len(old) == 1 and old[0].name == "default" and old[0].server == "*" and old[0].token == "abc"
 
+# --- config_defaults.ini (viene en el zip) + config.ini (lo del piloto, lo guarda CM) ---
+import shutil  # noqa: E402
+d3 = tempfile.mkdtemp()
+shutil.copy(os.path.join(APP, "config_defaults.ini"), d3)
+solo = opr_config.load(d3)                                     # recien instalada: sin config.ini
+assert [b.name for b in solo.backends] == ["graficas"]
+b = solo.backends[0]
+assert (b.url, b.token, b.server) == ("https://oppenpaddockracing.site", "", "*"), vars(b)
+assert (solo.send_interval_ms, solo.timeout_seconds, solo.debug) == (120, 2.0, False)
+with open(os.path.join(d3, "config.ini"), "w", encoding="utf-8-sig") as f:   # como lo guarda CM: con BOM
+    f.write("[backend:graficas]\ntoken = abc123 ; Tu token\n\n[telemetry]\ndebug = 1\n")
+mix = opr_config.load(d3)
+b = mix.backends[0]
+assert (b.url, b.token, b.server) == ("https://oppenpaddockracing.site", "abc123", "*"), vars(b)
+assert mix.debug and mix.send_interval_ms == 120
+
 # --- app: deteccion + boton ---------------------------------------------------
 import OPRTelemetry as app  # noqa: E402
 

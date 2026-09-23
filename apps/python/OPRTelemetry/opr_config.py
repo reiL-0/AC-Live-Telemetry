@@ -1,7 +1,9 @@
 """Carga de configuracion para OPR Telemetry.
 
-Lee `config.ini` junto al script. Si no existe, lo crea copiando
-`config.ini.example` y devuelve valores por defecto (sin destinos -> pausa).
+Lee `config_defaults.ini` (viene con la app: valores por defecto + descripciones
+para el editor de Content Manager) y encima `config.ini` (lo del piloto, sobre todo
+el token; lo crea CM al guardar y el zip no lo trae, asi una actualizacion no lo
+pisa). Las claves de config.ini ganan. Sin ninguno de los dos -> sin destinos -> pausa.
 
 Destinos: una seccion `[backend:nombre]` por backend (url, token, server).
 `[backend]` a secas (formato viejo) sigue valiendo: es un destino "default"
@@ -12,9 +14,9 @@ Modulo con prefijo `opr_` a proposito: todas las apps de AC comparten
 """
 import configparser
 import os
-import shutil
 
 LAST_FILE = "last_backend.txt"
+DEFAULTS_FILE = "config_defaults.ini"
 
 
 class Backend(object):
@@ -38,19 +40,12 @@ def load(app_dir):
     cfg = Config()
     cfg.path = os.path.join(app_dir, "config.ini")
 
-    if not os.path.isfile(cfg.path):
-        example = os.path.join(app_dir, "config.ini.example")
-        if os.path.isfile(example):
-            try:
-                shutil.copyfile(example, cfg.path)
-            except OSError:
-                pass
-        return cfg  # sin destinos -> pausa
-
-    parser = configparser.ConfigParser(interpolation=None)
+    # ";" al final de una linea = comentario (formato del editor de CM: "clave = valor ; descripcion").
+    # utf-8-sig: CM puede guardar con BOM.
+    parser = configparser.ConfigParser(interpolation=None, inline_comment_prefixes=(";",))
     try:
-        parser.read(cfg.path)
-    except configparser.Error:
+        parser.read([os.path.join(app_dir, DEFAULTS_FILE), cfg.path], encoding="utf-8-sig")
+    except (configparser.Error, UnicodeDecodeError):
         return cfg
 
     def get(section, option, default):

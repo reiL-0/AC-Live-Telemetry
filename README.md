@@ -34,17 +34,22 @@ hilo worker ── POST <url>/api/telemetry/ingest   Authorization: Bearer <toke
 1. Genera el paquete: `python dev/build_zip.py` → `dist/OPRTelemetry-<versión>.zip`.
 2. Arrastra el `.zip` a la ventana de Content Manager y confirma.
 3. Activa la app en *Settings → Assetto Corsa → Python Apps* de CM.
-4. Abre AC una vez: la app crea `config.ini` a partir de `config.ini.example`. Edítalo
-   (destinos y tokens) y reinicia AC.
+4. Pon tu **token** en *Settings → Assetto Corsa → Python app settings → OPR Telemetry*.
+   La URL de OPR y el resto de las opciones ya vienen configurados.
 
-El zip no incluye `config.ini`, así que **actualizar la app desde CM no borra tu token**.
+El zip trae `config_defaults.ini` (valores por defecto) pero no `config.ini`, donde CM guarda
+tus cambios. Así **actualizar la app desde CM no borra tu token**.
 
 ### A mano
 
 1. Copia la carpeta `apps/python/OPRTelemetry/` completa, **con `_socket.pyd` y `_ssl.pyd`**,
    a `.../steamapps/common/assettocorsa/apps/python/`. Tiene que quedar
    `apps\python\OPRTelemetry\OPRTelemetry.py`, sin carpetas duplicadas.
-2. Copia `config.ini.example` a `config.ini` y complétalo.
+2. Crea `config.ini` en esa carpeta con tu token:
+   ```ini
+   [backend:graficas]
+   token = TU_TOKEN
+   ```
 3. En AC: *Settings → General → UI Modules → OPR Telemetry* = ON.
 
 Dentro de una sesión, activa el ícono de la app: el recuadro muestra el estado
@@ -63,19 +68,30 @@ CM al tildar la app en *Settings → Assetto Corsa → Python apps*).
 
 ## Configuración
 
-`config.ini` tiene un bloque `[backend:nombre]` por destino y un bloque `[telemetry]`:
+La app lee dos archivos de su carpeta, en este orden; lo de `config.ini` gana:
+
+1. **`config_defaults.ini`**: viene con la app. Ya apunta a OPR y trae las descripciones que
+   usa el editor de Content Manager (*Settings → Assetto Corsa → Python app settings*).
+   No lo edites: se reemplaza en cada actualización.
+2. **`config.ini`**: tus cambios. Lo crea CM al guardar, o lo creas a mano. No viene en el
+   zip, así que las actualizaciones no lo pisan.
+
+Valores por defecto (`config_defaults.ini`):
 
 ```ini
-[backend:opr]
-url = https://tu-dominio-de-opr
-token = EL_TOKEN_DEL_PILOTO
-server = Open Paddock          ; IP, IP:puerto_http o parte del nombre; "*" = cualquier otro
+[backend:graficas]
+url = https://oppenpaddockracing.site  ; solo la direccion base, sin /api/telemetry/ingest
+token =                                 ; el de cada piloto: va en config.ini
+server = *                              ; IP, IP:puerto_http o parte del nombre; "*" = cualquiera
 
 [telemetry]
-send_interval_ms = 120         ; 100-150 recomendado
+send_interval_ms = 120                  ; de 50 a 1000 ms
 timeout_seconds = 2.0
-debug = 0                      ; 1 = log de cada envío en py_log.txt (nunca el token)
+debug = 0                               ; 1 = log de cada envio en py_log.txt (nunca el token)
 ```
+
+Para mandar a otro backend, agrega en `config.ini` otra sección `[backend:nombre]` con su
+`url`, `token` y `server`.
 
 - Cada backend tiene su propio token; un token solo sirve en su backend.
 - Al entrar a un servidor, la app escribe su IP, puerto y nombre en `py_log.txt`: usa esos
@@ -139,7 +155,8 @@ apps/python/OPRTelemetry/       <- la carpeta que se instala en AC
   _socket.pyd, _ssl.pyd         extensiones de Python 3.3.5 x64 que AC no trae
   THIRD_PARTY.txt               origen, MD5 y licencias de esos dos archivos
   manifest.ini                  nombre y versión
-  config.ini.example            plantilla (el config.ini real está gitignoreado)
+  config_defaults.ini           configuración por defecto + descripciones para el editor de CM
+                                (config.ini, con el token, está gitignoreado)
 dev/build_zip.py                arma el paquete para Content Manager
 dev/probe.py                    manda telemetría sintética sin abrir AC
 dev/test_backends.py            prueba la elección de destino sin AC
