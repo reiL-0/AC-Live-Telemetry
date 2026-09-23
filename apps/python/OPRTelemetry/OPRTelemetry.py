@@ -26,9 +26,16 @@ if APP_DIR not in sys.path:
 
 import ac  # noqa: E402
 
-import opr_config  # noqa: E402
-import opr_telemetry  # noqa: E402
-from opr_sender import Sender  # noqa: E402
+# El Python de AC no trae _socket.pyd ni _ssl.pyd (http.client los necesita): van en esta
+# carpeta y se encuentran por el sys.path de arriba. Si un import falla, AC solo dice
+# "ERROR LOADING MODULE" sin el motivo; lo dejamos en py_log.txt antes de propagarlo.
+try:
+    import opr_config  # noqa: E402
+    import opr_telemetry  # noqa: E402
+    from opr_sender import Sender  # noqa: E402
+except Exception:
+    ac.log("OPR Telemetry: error al cargar la app (faltan _socket.pyd / _ssl.pyd?)\n" + traceback.format_exc())
+    raise
 
 APP_NAME = "OPR Telemetry"
 

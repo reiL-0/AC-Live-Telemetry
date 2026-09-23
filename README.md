@@ -41,12 +41,25 @@ El zip no incluye `config.ini`, así que **actualizar la app desde CM no borra t
 
 ### A mano
 
-1. Copia `apps/python/OPRTelemetry/` a `.../steamapps/common/assettocorsa/apps/python/`.
+1. Copia la carpeta `apps/python/OPRTelemetry/` completa, **con `_socket.pyd` y `_ssl.pyd`**,
+   a `.../steamapps/common/assettocorsa/apps/python/`. Tiene que quedar
+   `apps\python\OPRTelemetry\OPRTelemetry.py`, sin carpetas duplicadas.
 2. Copia `config.ini.example` a `config.ini` y complétalo.
 3. En AC: *Settings → General → UI Modules → OPR Telemetry* = ON.
 
 Dentro de una sesión, activa el ícono de la app: el recuadro muestra el estado
 (`OK - enviados: N`, `esperando`, `sin conexión`, `TOKEN INVÁLIDO`…).
+
+### Si AC no carga la app
+
+Si `Documentos\Assetto Corsa\logs\py_log.txt` no tiene ninguna línea `OPR Telemetry`, mira
+`log.txt` en la misma carpeta. Si ahí dice
+`ERROR: Python ERROR LOADING MODULE :sys.path.append('apps/python/OPRTelemetry')`, casi
+seguro faltan `_socket.pyd` y `_ssl.pyd` en la carpeta de la app (ver
+[Gotchas](#gotchas-del-entorno-ac)). Desde la v0.3.2 vienen en el zip, y si un import falla
+igual, la app deja el error completo en `py_log.txt`. Revisa también que
+`Documentos\Assetto Corsa\cfg\python.ini` tenga `[OPRTELEMETRY]` con `ACTIVE=1` (lo escribe
+CM al tildar la app en *Settings → Assetto Corsa → Python apps*).
 
 ## Configuración
 
@@ -123,6 +136,8 @@ apps/python/OPRTelemetry/       <- la carpeta que se instala en AC
   opr_telemetry.py              arma el JSON desde ac.getCarState + opr_mmap
   opr_mmap.py                   memoria compartida: orientación, combustible, gomas, límite de RPM
   opr_sender.py                 hilo worker + slot + POST HTTP
+  _socket.pyd, _ssl.pyd         extensiones de Python 3.3.5 x64 que AC no trae
+  THIRD_PARTY.txt               origen, MD5 y licencias de esos dos archivos
   manifest.ini                  nombre y versión
   config.ini.example            plantilla (el config.ini real está gitignoreado)
 dev/build_zip.py                arma el paquete para Content Manager
@@ -140,7 +155,8 @@ python dev/test_backends.py                                   # lógica de desti
 python dev/probe.py --url http://localhost:5000 --token TOKEN --hz 8   # telemetría sintética
 ```
 
-Con AC: pon `debug = 1` en `config.ini` y mira `.../assettocorsa/logs/py_log.txt`.
+Con AC: pon `debug = 1` en `config.ini` y mira `Documentos\Assetto Corsa\logs\py_log.txt`
+(y `log.txt` si la app no aparece).
 
 Para publicar una versión nueva, sube `VERSION` en `manifest.ini` y vuelve a correr
 `python dev/build_zip.py`.
@@ -148,6 +164,13 @@ Para publicar una versión nueva, sube `VERSION` en `manifest.ini` y vuelve a co
 ### Gotchas del entorno AC
 
 - **Python 3.3.5** embebido: nada de f-strings ni `typing`; usa `.format()`.
+- **Sin `_socket` ni `_ssl`**: el Python de AC (`system\x64\Python33.zip`) trae `socket.py`,
+  `ssl.py` y `http\client.py`, pero no sus extensiones nativas, así que `import http.client`
+  falla y AC solo dice "ERROR LOADING MODULE" en `log.txt`. Por eso la app trae
+  `_socket.pyd` y `_ssl.pyd` (x64, copiados sin cambios del instalador oficial de Python
+  3.3.5; `_ssl` con OpenSSL 1.0.1e, que soporta TLS 1.2). `OPRTelemetry.py` agrega su
+  carpeta al `sys.path` antes de importar, así que se encuentran solos. No conviene
+  depender de los de otras apps: se cargan en orden alfabético y pueden no estar.
 - **HTTPS**: el Python de AC no verifica certificados (OpenSSL viejo). Funciona contra
   endpoints TLS 1.2; si un túnel falla desde el juego, prueba `http://` o LAN directa.
 - La rotación no está en el módulo `ac`: sale de `acpmf_physics` (offset 208). Fuera de
@@ -158,4 +181,6 @@ Para publicar una versión nueva, sube `VERSION` en `manifest.ini` y vuelve a co
 
 ## Licencia
 
-[MIT](LICENSE)
+[MIT](LICENSE). `_socket.pyd` y `_ssl.pyd` son de Python (PSF License) y
+OpenSSL (OpenSSL/SSLeay License); detalles en
+[`apps/python/OPRTelemetry/THIRD_PARTY.txt`](apps/python/OPRTelemetry/THIRD_PARTY.txt).

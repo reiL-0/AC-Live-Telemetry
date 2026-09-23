@@ -1,0 +1,30 @@
+_socket.pyd y _ssl.pyd
+======================
+
+Por que estan aca
+-----------------
+El Python 3.3.5 que trae Assetto Corsa (system\x64\Python33.zip) incluye socket.py,
+ssl.py y http\client.py, pero NO las extensiones nativas _socket.pyd ni _ssl.pyd.
+Sin ellas "import http.client" falla, la app no carga y AC solo escribe en log.txt:
+    ERROR: Python ERROR LOADING MODULE :sys.path.append('apps/python/OPRTelemetry')
+OPRTelemetry.py agrega esta carpeta al sys.path antes de importar, asi que Python
+encuentra estos dos archivos aca.
+
+Origen
+------
+Copiados sin modificar de la carpeta DLLs\ del instalador oficial de Python 3.3.5 para
+Windows x64:
+    https://www.python.org/ftp/python/3.3.5/python-3.3.5.amd64.msi
+    MD5 del instalador: ebb3ab0df91389a6dd45317d6f4ac838
+    MD5 _socket.pyd:    1979dab6def6a8cb3beb8d1976da7adb
+    MD5 _ssl.pyd:       7eadb8ed11373457572f7fd643dfc71c
+_ssl.pyd trae OpenSSL 1.0.1e enlazado estatico (soporta TLS 1.2).
+
+Licencias
+---------
+- Python: Python Software Foundation License Version 2
+  https://docs.python.org/3.3/license.html
+- OpenSSL 1.0.1e: OpenSSL License / SSLeay License (licencia dual)
+  https://www.openssl.org/source/license-openssl-ssleay.txt
+  "This product includes software developed by the OpenSSL Project for use in the
+  OpenSSL Toolkit (http://www.openssl.org/)."
