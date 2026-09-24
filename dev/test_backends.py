@@ -71,16 +71,25 @@ import shutil  # noqa: E402
 d3 = tempfile.mkdtemp()
 shutil.copy(os.path.join(APP, "config_defaults.ini"), d3)
 solo = opr_config.load(d3)                                     # recien instalada: sin config.ini
-assert [b.name for b in solo.backends] == ["graficas"]
+assert [b.name for b in solo.backends] == ["graficas"]        # "extra" sin url: apagado
+import re  # noqa: E402
+with open(os.path.join(APP, "config_defaults.ini")) as f:
+    names = re.findall(r"^\[(.+)\]", f.read(), re.M)
+assert all(re.match(r"^[\w -]+$", n) for n in names), names    # si no, Content Manager no muestra el archivo
 b = solo.backends[0]
 assert (b.url, b.token, b.server) == ("https://oppenpaddockracing.site", "", "*"), vars(b)
 assert (solo.send_interval_ms, solo.timeout_seconds, solo.debug) == (120, 2.0, False)
 with open(os.path.join(d3, "config.ini"), "w", encoding="utf-8-sig") as f:   # como lo guarda CM: con BOM
-    f.write("[backend:graficas]\ntoken = abc123 ; Tu token\n\n[telemetry]\ndebug = 1\n")
+    f.write("[backend graficas]\ntoken = abc123 ; Tu token\n\n[backend extra]\nurl = http://h:9\ntoken = z\nserver = 1.2.3.4\n\n[telemetry]\ndebug = 1\n")
 mix = opr_config.load(d3)
 b = mix.backends[0]
 assert (b.url, b.token, b.server) == ("https://oppenpaddockracing.site", "abc123", "*"), vars(b)
 assert mix.debug and mix.send_interval_ms == 120
+assert [(x.name, x.url, x.server) for x in mix.backends[1:]] == [("extra", "http://h:9", "1.2.3.4")]
+with open(os.path.join(d3, "config.ini"), "w") as f:            # config.ini del formato anterior: se combina con los defaults
+    f.write("[backend:graficas]\ntoken = viejo\n")
+leg = opr_config.load(d3).backends
+assert [(x.name, x.url, x.token) for x in leg] == [("graficas", "https://oppenpaddockracing.site", "viejo")], leg
 
 # --- app: deteccion + boton ---------------------------------------------------
 import OPRTelemetry as app  # noqa: E402

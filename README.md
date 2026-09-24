@@ -47,7 +47,7 @@ tus cambios. Así **actualizar la app desde CM no borra tu token**.
    `apps\python\OPRTelemetry\OPRTelemetry.py`, sin carpetas duplicadas.
 2. Crea `config.ini` en esa carpeta con tu token:
    ```ini
-   [backend:graficas]
+   [backend graficas]
    token = TU_TOKEN
    ```
 3. En AC: *Settings → General → UI Modules → OPR Telemetry* = ON.
@@ -79,10 +79,15 @@ La app lee dos archivos de su carpeta, en este orden; lo de `config.ini` gana:
 Valores por defecto (`config_defaults.ini`):
 
 ```ini
-[backend:graficas]
+[backend graficas]
 url = https://oppenpaddockracing.site  ; solo la direccion base, sin /api/telemetry/ingest
 token =                                 ; el de cada piloto: va en config.ini
 server = *                              ; IP, IP:puerto_http o parte del nombre; "*" = cualquiera
+
+[backend extra]
+url =                                   ; vacio = destino apagado
+token =
+server =
 
 [telemetry]
 send_interval_ms = 120                  ; de 50 a 1000 ms
@@ -90,8 +95,10 @@ timeout_seconds = 2.0
 debug = 0                               ; 1 = log de cada envio en py_log.txt (nunca el token)
 ```
 
-Para mandar a otro backend, agrega en `config.ini` otra sección `[backend:nombre]` con su
-`url`, `token` y `server`.
+Hay un segundo destino, `[backend extra]`, apagado mientras su `url` esté vacía: ponle la URL, el
+token y el `server` (IP, IP:puerto o parte del nombre) desde Content Manager para mandar también a
+otro backend. Content Manager solo muestra el archivo si los nombres de sección no llevan `:`,
+por eso el separador es un espacio (`[backend:nombre]`, el formato anterior, sigue funcionando).
 
 - Cada backend tiene su propio token; un token solo sirve en su backend.
 - Al entrar a un servidor, la app escribe su IP, puerto y nombre en `py_log.txt`: usa esos

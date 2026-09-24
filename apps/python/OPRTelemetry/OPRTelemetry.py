@@ -11,7 +11,7 @@ se reintenta en el proximo tick - el juego nunca se traba.
 Entradas del juego: solo `ac.getCarState(0, ...)` - el auto propio. El destino
 (que piloto es) lo decide el token, nunca un campo del JSON.
 
-Destinos: config.ini define varios `[backend:nombre]`. Al unirse a un servidor la
+Destinos: config.ini define varios `[backend nombre]`. Al unirse a un servidor la
 app lee su IP / puerto / nombre y elige el destino que coincida; el boton "Cambiar
 destino" permite elegir uno a mano (vale hasta que cambie el servidor).
 """
@@ -92,7 +92,7 @@ def acMain(ac_version):
 
     _interval_s = _cfg.send_interval_ms / 1000.0
     if not _cfg.backends:
-        ac.log("OPR Telemetry: config.ini sin [backend:...] - la app queda en pausa")
+        ac.log("OPR Telemetry: config.ini sin [backend ...] - la app queda en pausa")
     _autoselect()
     return APP_NAME
 

@@ -5,16 +5,21 @@ para el editor de Content Manager) y encima `config.ini` (lo del piloto, sobre t
 el token; lo crea CM al guardar y el zip no lo trae, asi una actualizacion no lo
 pisa). Las claves de config.ini ganan. Sin ninguno de los dos -> sin destinos -> pausa.
 
-Destinos: una seccion `[backend:nombre]` por backend (url, token, server).
-`[backend]` a secas (formato viejo) sigue valiendo: es un destino "default"
-que acepta cualquier servidor.
+Destinos: una seccion `[backend nombre]` por backend (url, token, server). Content
+Manager solo muestra un .ini si TODOS sus nombres de seccion son letras, numeros, espacio o guion, asi que
+el separador es un espacio; `[backend:nombre]` (formato anterior) sigue valiendo, y
+si el mismo nombre aparece en config_defaults.ini y en config.ini se combinan clave
+a clave. Un destino sin `url` se ignora (asi el "extra" del zip queda apagado).
+`[backend]` a secas (formato viejo) es un destino "default" que acepta cualquier servidor.
 
 Modulo con prefijo `opr_` a proposito: todas las apps de AC comparten
 `sys.modules`, asi que un `config.py` "pelado" chocaria con el de otra app.
 """
 import configparser
 import os
+import re
 
+_BACKEND_RE = re.compile(r"^backend[: ]\s*(.+)$", re.IGNORECASE)
 LAST_FILE = "last_backend.txt"
 DEFAULTS_FILE = "config_defaults.ini"
 
@@ -54,15 +59,23 @@ def load(app_dir):
         except (configparser.NoSectionError, configparser.NoOptionError):
             return default
 
+    found = {}   # nombre -> {url, token, server}; defaults primero, config.ini encima
     for section in parser.sections():
+        m = _BACKEND_RE.match(section)
         if section == "backend":
-            name, server = "default", "*"
-        elif section.startswith("backend:") and section[8:].strip():
-            name, server = section[8:].strip(), get(section, "server", "")
+            name = "default"
+        elif m:
+            name = m.group(1).strip()
         else:
             continue
-        url = get(section, "url", "http://localhost:5000").rstrip("/")
-        cfg.backends.append(Backend(name, url, get(section, "token", ""), server))
+        e = found.setdefault(name, {"url": "http://localhost:5000", "token": "",
+                                    "server": "*" if name == "default" else ""})
+        for key in e:
+            if parser.has_option(section, key):
+                e[key] = parser.get(section, key).strip()
+    for name, e in found.items():
+        if e["url"]:
+            cfg.backends.append(Backend(name, e["url"].rstrip("/"), e["token"], e["server"]))
 
     try:
         cfg.send_interval_ms = int(float(get("telemetry", "send_interval_ms", "120")))
