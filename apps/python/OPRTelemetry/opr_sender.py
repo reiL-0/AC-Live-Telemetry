@@ -22,6 +22,12 @@ try:
 except ImportError:
     ac = None
 
+try:
+    import ssl  # noqa: F401  http.client lo importa en silencio y, si falla, no define HTTPSConnection
+    _SSL_ERR = ""
+except ImportError as _e:
+    _SSL_ERR = str(_e)  # p. ej. "DLL load failed": suele faltar el runtime VC++ 2010 de Windows
+
 INGEST_PATH = "/api/telemetry/ingest"
 
 
@@ -96,6 +102,8 @@ class Sender(object):
 
     def _connection(self):
         if self._scheme == "https":
+            if _SSL_ERR:
+                raise RuntimeError("sin SSL (_ssl.pyd no carga): " + _SSL_ERR)
             return http.client.HTTPSConnection(self._host, self._port, timeout=self._timeout)
         return http.client.HTTPConnection(self._host, self._port, timeout=self._timeout)
 
