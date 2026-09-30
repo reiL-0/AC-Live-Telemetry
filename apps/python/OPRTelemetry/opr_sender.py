@@ -28,6 +28,15 @@ try:
 except ImportError as _e:
     _SSL_ERR = str(_e)  # p. ej. "DLL load failed": suele faltar el runtime VC++ 2010 de Windows
 
+if not _SSL_ERR and not hasattr(http.client, "HTTPSConnection"):
+    # Las apps de AC comparten interprete: otra app pudo importar http.client cuando _ssl aun no
+    # cargaba y dejarlo en cache sin HTTPSConnection. Con _ssl ya disponible, se recarga.
+    try:
+        from importlib import reload
+    except ImportError:  # Python 3.3
+        from imp import reload
+    reload(http.client)
+
 INGEST_PATH = "/api/telemetry/ingest"
 
 
