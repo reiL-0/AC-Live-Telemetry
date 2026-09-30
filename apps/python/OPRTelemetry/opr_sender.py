@@ -62,6 +62,7 @@ class Sender(object):
         self._stop = False
         self._thread = None
         self._cooldown_until = 0.0
+        self._conn = None
 
         # estado que lee el hilo principal para el recuadro
         self.state = "starting"
@@ -116,32 +117,40 @@ class Sender(object):
             return http.client.HTTPSConnection(self._host, self._port, timeout=self._timeout)
         return http.client.HTTPConnection(self._host, self._port, timeout=self._timeout)
 
+    def _drop(self):
+        if self._conn is not None:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+            self._conn = None
+
     def _send(self, sample):
         body = json.dumps(sample).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + self._token,
-            "Connection": "close",
         }
-        conn = None
-        try:
-            conn = self._connection()
-            conn.request("POST", self._path, body=body, headers=headers)
-            resp = conn.getresponse()
-            code = resp.status
-            resp.read()
-        except Exception as exc:  # red caida, timeout, DNS, TLS...
-            self.state = "no_net"
-            self.detail = str(exc)[:80]
-            if self._debug:
-                _log("sin red: " + self.detail)
-            return
-        finally:
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
+        # Conexion keep-alive: abrir TCP+TLS por cada muestra (~250 ms via Cloudflare) no da para 8 Hz.
+        for attempt in (0, 1):
+            reused = self._conn is not None
+            try:
+                if self._conn is None:
+                    self._conn = self._connection()
+                self._conn.request("POST", self._path, body=body, headers=headers)
+                resp = self._conn.getresponse()
+                code = resp.status
+                resp.read()
+                break
+            except Exception as exc:  # red caida, timeout, DNS, TLS...
+                self._drop()
+                if reused and attempt == 0:
+                    continue  # la conexion pudo caducar en el servidor: una vez mas, con una nueva
+                self.state = "no_net"
+                self.detail = str(exc)[:80]
+                if self._debug:
+                    _log("sin red: " + self.detail)
+                return
 
         self.last_code = code
         if code == 204:

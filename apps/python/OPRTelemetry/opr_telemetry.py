@@ -54,6 +54,20 @@ def _car_track(car_id):
     return _ident
 
 
+_brake_peak = 0.0
+
+
+def sample_peaks(car_id=0):
+    """Se llama en cada frame: guarda el pico de freno entre dos envios (~8 Hz),
+    para que un toque corto no caiga entre dos muestras."""
+    global _brake_peak
+    if ac is None:
+        return
+    b = ac.getCarState(car_id, acsys.CS.Brake) or 0.0
+    if b > _brake_peak:
+        _brake_peak = b
+
+
 def read(car_id=0):
     """Payload listo para enviar, o None si getCarState no devuelve nada util
     (menus, repeticion sin auto, etc.)."""
@@ -68,7 +82,9 @@ def read(car_id=0):
         return None
 
     gas = ac.getCarState(car_id, acsys.CS.Gas) or 0.0
-    brake = ac.getCarState(car_id, acsys.CS.Brake) or 0.0
+    global _brake_peak
+    brake = max(ac.getCarState(car_id, acsys.CS.Brake) or 0.0, _brake_peak)
+    _brake_peak = 0.0
     clutch = ac.getCarState(car_id, acsys.CS.Clutch)
     if clutch is None:
         clutch = 1.0  # 1.0 = embrague suelto en AC

@@ -26,6 +26,8 @@ if APP_DIR not in sys.path:
 
 import ac  # noqa: E402
 
+_T_IMPORT = time.monotonic()
+
 # El Python de AC no trae _socket.pyd ni _ssl.pyd (http.client los necesita): van en esta
 # carpeta y se encuentran por el sys.path de arriba. Si un import falla, AC solo dice
 # "ERROR LOADING MODULE" sin el motivo; lo dejamos en py_log.txt antes de propagarlo.
@@ -38,6 +40,21 @@ except Exception:
     raise
 
 APP_NAME = "OPR Telemetry"
+
+_slow_logged = 0
+
+
+def _slow(what, since, limit_s=0.05):
+    """Deja en py_log.txt (max. 8 veces) lo que tarde mas de 50 ms en el hilo del juego:
+    AC avisa "app lenta" y asi se ve cual parte fue."""
+    global _slow_logged
+    dt = time.monotonic() - since
+    if dt > limit_s and _slow_logged < 8:
+        _slow_logged += 1
+        ac.log("OPR Telemetry: lento: {0} tardo {1:.0f} ms".format(what, dt * 1000))
+
+
+_slow("importar modulos (ssl, http.client...)", _T_IMPORT)
 
 DETECT_EVERY_S = 5.0   # cada cuanto se revisa a que servidor estamos conectados
 
@@ -69,6 +86,7 @@ _STATE_TEXT = {
 
 def acMain(ac_version):
     global _app_window, _label, _button, _cfg, _interval_s
+    t_main = time.monotonic()
 
     _app_window = ac.newApp(APP_NAME)
     ac.setSize(_app_window, 300, 130)
@@ -91,6 +109,7 @@ def acMain(ac_version):
         _cfg = opr_config.Config()
 
     _interval_s = _cfg.send_interval_ms / 1000.0
+    _slow("acMain (ventana y config)", t_main)
     if not _cfg.backends:
         ac.log("OPR Telemetry: config.ini sin [backend ...] - la app queda en pausa")
     _autoselect()
@@ -155,21 +174,26 @@ def _on_click(*args):
 def acUpdate(delta_t):
     global _last_submit, _last_detect, _error_logged
     try:
-        _render()
-
         now = time.monotonic()
+        _render()
+        _slow("dibujar el recuadro", now)
+
         if now - _last_detect >= DETECT_EVERY_S:
             _last_detect = now
             _autoselect()
+            _slow("detectar servidor", now)
 
         if _sender is None or _sender.state in ("no_token", "bad_token"):
             return
 
+        opr_telemetry.sample_peaks(0)
         if now - _last_submit < _interval_s:
             return
         _last_submit = now
 
+        t = time.monotonic()
         sample = opr_telemetry.read(0)
+        _slow("leer telemetria", t)
         if sample is not None:
             _sender.submit(sample)
     except Exception:
