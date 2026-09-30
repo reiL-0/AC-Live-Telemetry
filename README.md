@@ -85,9 +85,9 @@ token =                                 ; el de cada piloto: va en config.ini
 server = *                              ; IP, IP:puerto_http o parte del nombre; "*" = cualquiera
 
 [backend extra]
-url =                                   ; vacio = destino apagado
-token =
-server =
+url = https://telemetria.oppenpaddockracing.site   ; vacio = destino apagado
+token =                                 ; el de cada piloto (se genera en la pagina principal de ese backend)
+server = 74.208.202.168:8060            ; solo manda aca desde el servidor de OPR
 
 [telemetry]
 send_interval_ms = 120                  ; de 50 a 1000 ms
@@ -95,9 +95,10 @@ timeout_seconds = 2.0
 debug = 0                               ; 1 = log de cada envio en py_log.txt (nunca el token)
 ```
 
-Hay un segundo destino, `[backend extra]`, apagado mientras su `url` esté vacía: ponle la URL, el
-token y el `server` (IP, IP:puerto o parte del nombre) desde Content Manager para mandar también a
-otro backend. Content Manager solo muestra el archivo si los nombres de sección no llevan `:`,
+Hay un segundo destino, `[backend extra]` (telemetría en vivo y comparativas), que solo recibe datos
+del servidor `74.208.202.168:8060`; desde cualquier otro servidor se usa `graficas`. Ponle tu token
+desde Content Manager. Con la `url` vacía queda apagado. Se elige **un** destino por servidor: en el
+servidor de OPR se manda a `extra` y no a `graficas`. Content Manager solo muestra el archivo si los nombres de sección no llevan `:`,
 por eso el separador es un espacio (`[backend:nombre]`, el formato anterior, sigue funcionando).
 
 - Cada backend tiene su propio token; un token solo sirve en su backend.

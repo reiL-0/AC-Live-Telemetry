@@ -71,7 +71,12 @@ import shutil  # noqa: E402
 d3 = tempfile.mkdtemp()
 shutil.copy(os.path.join(APP, "config_defaults.ini"), d3)
 solo = opr_config.load(d3)                                     # recien instalada: sin config.ini
-assert [b.name for b in solo.backends] == ["graficas"]        # "extra" sin url: apagado
+assert [b.name for b in solo.backends] == ["graficas", "extra"]
+ex = solo.backends[1]
+assert (ex.url, ex.server) == ("https://telemetria.oppenpaddockracing.site", "74.208.202.168:8060"), vars(ex)
+assert opr_config.pick(solo.backends, "74.208.202.168", 8060, "x") == 1    # el servidor de OPR -> extra
+assert opr_config.pick(solo.backends, "74.208.202.168", 9999, "x") == 0    # otro puerto -> graficas
+assert opr_config.pick(solo.backends, "1.2.3.4", 8060, "x") == 0
 import re  # noqa: E402
 with open(os.path.join(APP, "config_defaults.ini")) as f:
     names = re.findall(r"^\[(.+)\]", f.read(), re.M)
@@ -89,7 +94,7 @@ assert [(x.name, x.url, x.server) for x in mix.backends[1:]] == [("extra", "http
 with open(os.path.join(d3, "config.ini"), "w") as f:            # config.ini del formato anterior: se combina con los defaults
     f.write("[backend:graficas]\ntoken = viejo\n")
 leg = opr_config.load(d3).backends
-assert [(x.name, x.url, x.token) for x in leg] == [("graficas", "https://oppenpaddockracing.site", "viejo")], leg
+assert [(x.name, x.url, x.token) for x in leg][0] == ("graficas", "https://oppenpaddockracing.site", "viejo"), leg
 
 # --- app: deteccion + boton ---------------------------------------------------
 import OPRTelemetry as app  # noqa: E402
