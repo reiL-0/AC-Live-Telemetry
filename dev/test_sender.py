@@ -62,4 +62,13 @@ for v in (0.0, 0.9, 0.0):                                    # toque corto entre
     opr_telemetry.sample_peaks(0)
 assert opr_telemetry._brake_peak == 0.9
 srv.shutdown()
+
+# --- http.client en cache sin SSL (otra app de AC lo importo antes) -> el Sender lo recarga ---
+sys.modules["ssl"] = None
+sys.modules.pop("http.client")
+import http.client  # noqa: E402
+assert not hasattr(http.client, "HTTPSConnection")
+del sys.modules["ssl"]
+c = opr_sender.Sender("https://127.0.0.1:1", "t", 2.0)._connection()
+assert type(c).__name__ == "HTTPSConnection", c
 print("ok")

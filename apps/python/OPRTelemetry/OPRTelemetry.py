@@ -54,7 +54,7 @@ def _slow(what, since, limit_s=0.05):
         ac.log("OPR Telemetry: lento: {0} tardo {1:.0f} ms".format(what, dt * 1000))
 
 
-_slow("importar modulos (ssl, http.client...)", _T_IMPORT)
+_slow("importar modulos", _T_IMPORT)
 
 DETECT_EVERY_S = 5.0   # cada cuanto se revisa a que servidor estamos conectados
 

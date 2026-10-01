@@ -11,7 +11,6 @@ Codigos del backend:
                                 hasta que el leaderboard vea al piloto)
     429  rate-limit          -> pausa corta y reintento
 """
-import http.client
 import json
 import threading
 import time
@@ -21,21 +20,6 @@ try:
     import ac
 except ImportError:
     ac = None
-
-try:
-    import ssl  # noqa: F401  http.client lo importa en silencio y, si falla, no define HTTPSConnection
-    _SSL_ERR = ""
-except ImportError as _e:
-    _SSL_ERR = str(_e)  # p. ej. "DLL load failed": suele faltar el runtime VC++ 2010 de Windows
-
-if not _SSL_ERR and not hasattr(http.client, "HTTPSConnection"):
-    # Las apps de AC comparten interprete: otra app pudo importar http.client cuando _ssl aun no
-    # cargaba y dejarlo en cache sin HTTPSConnection. Con _ssl ya disponible, se recarga.
-    try:
-        from importlib import reload
-    except ImportError:  # Python 3.3
-        from imp import reload
-    reload(http.client)
 
 INGEST_PATH = "/api/telemetry/ingest"
 
@@ -111,9 +95,22 @@ class Sender(object):
             self._send(sample)
 
     def _connection(self):
+        # http.client y ssl se importan aqui (hilo del sender), no al cargar la app: cargar
+        # _ssl.pyd tarda ~100 ms y AC avisa "app lenta" si eso ocurre en su hilo.
+        import http.client
         if self._scheme == "https":
-            if _SSL_ERR:
-                raise RuntimeError("sin SSL (_ssl.pyd no carga): " + _SSL_ERR)
+            try:
+                import ssl  # noqa: F401  http.client lo importa en silencio y, si falla, no define HTTPSConnection
+            except ImportError as e:  # p. ej. "DLL load failed": suele faltar el runtime VC++ 2010
+                raise RuntimeError("sin SSL (_ssl.pyd no carga): " + str(e))
+            if not hasattr(http.client, "HTTPSConnection"):
+                # Las apps de AC comparten interprete: otra app pudo importar http.client cuando _ssl
+                # aun no cargaba y dejarlo en cache sin HTTPSConnection. Con _ssl disponible, se recarga.
+                try:
+                    from importlib import reload
+                except ImportError:  # Python 3.3
+                    from imp import reload
+                reload(http.client)
             return http.client.HTTPSConnection(self._host, self._port, timeout=self._timeout)
         return http.client.HTTPConnection(self._host, self._port, timeout=self._timeout)
 
