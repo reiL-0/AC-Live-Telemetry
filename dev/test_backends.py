@@ -73,22 +73,21 @@ shutil.copy(os.path.join(APP, "config_defaults.ini"), d3)
 solo = opr_config.load(d3)                                     # recien instalada: sin config.ini
 assert [b.name for b in solo.backends] == ["graficas", "extra"]
 ex = solo.backends[1]
-assert (ex.url, ex.server) == ("https://telemetria.oppenpaddockracing.site", "74.208.202.168:8060"), vars(ex)
-assert opr_config.pick(solo.backends, "74.208.202.168", 8060, "x") == 1    # el servidor de OPR -> extra
-assert opr_config.pick(solo.backends, "74.208.202.168", 9999, "x") == 0    # otro puerto -> graficas
-assert opr_config.pick(solo.backends, "1.2.3.4", 8060, "x") == 0
+assert (ex.url, ex.token, ex.server) == ("https://telemetria.oppenpaddockracing.site", "auto", "*"), vars(ex)
+assert opr_config.pick(solo.backends, "74.208.202.168", 8060, "x") == 1    # cualquier servidor -> extra: el backend decide si esta autorizado
+assert opr_config.pick(solo.backends, "1.2.3.4", 9999, "x") == 1
 import re  # noqa: E402
 with open(os.path.join(APP, "config_defaults.ini")) as f:
     names = re.findall(r"^\[(.+)\]", f.read(), re.M)
 assert all(re.match(r"^[\w -]+$", n) for n in names), names    # si no, Content Manager no muestra el archivo
 b = solo.backends[0]
-assert (b.url, b.token, b.server) == ("https://oppenpaddockracing.site", "", "*"), vars(b)
+assert (b.url, b.token, b.server) == ("https://oppenpaddockracing.site", "", ""), vars(b)   # solo con el boton
 assert (solo.send_interval_ms, solo.timeout_seconds, solo.debug) == (120, 2.0, False)
 with open(os.path.join(d3, "config.ini"), "w", encoding="utf-8-sig") as f:   # como lo guarda CM: con BOM
     f.write("[backend graficas]\ntoken = abc123 ; Tu token\n\n[backend extra]\nurl = http://h:9\ntoken = z\nserver = 1.2.3.4\n\n[telemetry]\ndebug = 1\n")
 mix = opr_config.load(d3)
 b = mix.backends[0]
-assert (b.url, b.token, b.server) == ("https://oppenpaddockracing.site", "abc123", "*"), vars(b)
+assert (b.url, b.token, b.server) == ("https://oppenpaddockracing.site", "abc123", ""), vars(b)
 assert mix.debug and mix.send_interval_ms == 120
 assert [(x.name, x.url, x.server) for x in mix.backends[1:]] == [("extra", "http://h:9", "1.2.3.4")]
 with open(os.path.join(d3, "config.ini"), "w") as f:            # config.ini del formato anterior: se combina con los defaults
@@ -101,7 +100,9 @@ import OPRTelemetry as app  # noqa: E402
 
 app.APP_DIR = d                                                # que no toque la config real
 app.acMain("1.0")                                              # carga config, registra el boton, autoselecciona
-assert app._idx == 1 and not app._manual                       # sin servidor -> "graficas"
+assert app._idx is None and app._sender is None                # sin servidor (menus / un jugador): no hay a donde mandar
+app._render()
+assert "sin destino" in labels["text"]
 server.update(ip="1.1.1.1", port=80, name="Open Paddock #2")
 app._autoselect()
 assert app._idx == 0 and app._sender.state != "no_token"

@@ -4,6 +4,8 @@ Usa el modulo `ac` para pedales / marcha / rpm / velocidad / posicion / steer,
 y `opr_mmap` para la orientacion. Devuelve el dict ya con el esquema exacto
 que espera `POST /api/telemetry/ingest`, o None si no estamos en un auto.
 """
+import base64
+
 try:
     import ac
     import acsys
@@ -106,6 +108,7 @@ def read(car_id=0):
 
     hpr = opr_mmap.heading_pitch_roll()
     heading, pitch, roll = hpr if hpr is not None else (0.0, 0.0, 0.0)
+    raw_phys, raw_gfx = opr_mmap.raw_pages()
 
     return {
         "pos": {"x": _r(px, 3), "y": _r(py, 3), "z": _r(pz, 3)},
@@ -140,6 +143,9 @@ def read(car_id=0):
         "car": car,
         "track": track,
         "trackLen": _r(track_len, 1),         # metros; 0 si AC no lo dio
+        # paginas de memoria compartida en bruto (base64): el servidor las decodifica y guarda todos los canales
+        "rawPhysics": base64.b64encode(raw_phys).decode("ascii"),
+        "rawGraphics": base64.b64encode(raw_gfx).decode("ascii"),
     }
 
 

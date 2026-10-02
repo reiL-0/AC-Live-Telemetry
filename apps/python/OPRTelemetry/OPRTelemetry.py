@@ -33,6 +33,7 @@ _T_IMPORT = time.monotonic()
 # "ERROR LOADING MODULE" sin el motivo; lo dejamos en py_log.txt antes de propagarlo.
 try:
     import opr_config  # noqa: E402
+    import opr_key  # noqa: E402
     import opr_telemetry  # noqa: E402
     from opr_sender import Sender  # noqa: E402
 except Exception:
@@ -77,6 +78,7 @@ _STATE_TEXT = {
     "no_backend": "sin destino para este servidor",
     "ok":        "OK - enviados: {sent}",
     "waiting":   "esperando (auto no conectado aun)",
+    "unauthorized": "servidor no autorizado",
     "no_net":    "sin conexion al backend",
     "bad_token": "TOKEN INVALIDO - revisa config.ini",
     "http_err":  "error {code}",
@@ -134,6 +136,9 @@ def _autoselect():
     _server_key = key
     _manual = False
     ac.log("OPR Telemetry: servidor ip={0} puerto_http={1} nombre={2}".format(*key))
+    if not key[0]:   # menus / un jugador: no hay servidor al que reportar
+        _use(None)
+        return
     idx = opr_config.pick(_cfg.backends, *key)
     if idx is None:  # ninguno coincide: el ultimo elegido a mano, si existe
         last = opr_config.load_last(APP_DIR)
@@ -151,8 +156,11 @@ def _use(idx):
         _sender = None
         return
     b = _cfg.backends[idx]
-    _sender = Sender(b.url, b.token, _cfg.timeout_seconds, _cfg.debug)
-    if b.token:
+    auto = b.token.lower() == "auto"          # clave propia de esta instalacion (device_key.txt), sin teclear nada
+    token = opr_key.load(APP_DIR) if auto else b.token
+    _sender = Sender(b.url, token, _cfg.timeout_seconds, _cfg.debug,
+                     regen=(lambda: opr_key.renew(APP_DIR)) if auto else None)
+    if token:
         _sender.start()
         ac.log("OPR Telemetry: destino '{0}' -> {1}".format(b.name, b.url))
     else:
@@ -195,6 +203,8 @@ def acUpdate(delta_t):
         sample = opr_telemetry.read(0)
         _slow("leer telemetria", t)
         if sample is not None:
+            # a que servidor de AC dice estar: el backend decide si esta autorizado (panel de admin)
+            sample["serverIp"], sample["serverPort"], sample["serverName"] = _server_key or ("", 0, "")
             _sender.submit(sample)
     except Exception:
         if not _error_logged:

@@ -59,7 +59,7 @@ except ImportError:  # pragma: no cover
     mmap = None
 
 _TAG = "Local\\acpmf_physics"
-_MAP_SIZE = 512          # sobra para llegar al offset 208..220
+_MAP_SIZES = (580, 512)  # 580 = la pagina physics entera (para raw_pages); si AC la mapea mas chica, 512 (llega al offset 416)
 _OFF_HEADING = 208
 _OFF_FUEL = 12
 _OFF_ACC_G = 44          # accG[3]: x = lateral, y = vertical, z = longitudinal (G)
@@ -79,19 +79,49 @@ _TAG_STATIC = "Local\\acpmf_static"
 _MAP_SIZE_STATIC = 800   # sobra para llegar al offset 412..416
 _OFF_MAX_RPM = 412
 
+_RAW_GFX = 296           # SPageFileGraphic hasta windDirection (surfaceGrip esta en el offset 280)
+
 _mm = None
+_mm_len = 0
 _mm_static = None
 _mm_gfx = None
 
 
 def _open():
-    global _mm
+    global _mm, _mm_len
     if _mm is not None or mmap is None:
         return
+    for size in _MAP_SIZES:
+        try:
+            _mm = mmap.mmap(-1, size, _TAG, mmap.ACCESS_READ)
+            _mm_len = size
+            return
+        except (OSError, ValueError, TypeError):
+            _mm = None  # fuera de Windows / AC no corriendo (el 3er arg es Windows-only) / mapeo mas chico
+
+
+def _open_gfx():
+    global _mm_gfx
+    if _mm_gfx is None and mmap is not None:
+        try:
+            _mm_gfx = mmap.mmap(-1, _MAP_SIZE_GFX, _TAG_GFX, mmap.ACCESS_READ)
+        except (OSError, ValueError, TypeError):
+            pass
+    return _mm_gfx
+
+
+def raw_pages():
+    """(physics, graphics) en bruto: el servidor los decodifica, asi un offset mal o un campo nuevo se
+    corrige alla sin sacar otra version de la app. (b"", b"") sin memoria compartida."""
+    _open()
+    if _mm is None:
+        return b"", b""
     try:
-        _mm = mmap.mmap(-1, _MAP_SIZE, _TAG, mmap.ACCESS_READ)
-    except (OSError, ValueError, TypeError):
-        _mm = None  # fuera de Windows / AC no corriendo (el 3er arg es Windows-only)
+        gfx = _open_gfx()
+        return _mm[:_mm_len], (gfx[:_RAW_GFX] if gfx is not None else b"")
+    except (OSError, ValueError):
+        close()
+        return b"", b""
 
 
 def _open_static():
@@ -137,12 +167,8 @@ def extras():
 
 def compound():
     """Nombre del compuesto montado (SPageFileGraphic.tyreCompound), o "" si no se pudo leer."""
-    global _mm_gfx
-    if _mm_gfx is None and mmap is not None:
-        try:
-            _mm_gfx = mmap.mmap(-1, _MAP_SIZE_GFX, _TAG_GFX, mmap.ACCESS_READ)
-        except (OSError, ValueError, TypeError):
-            return ""
+    if _open_gfx() is None:
+        return ""
     try:
         return _mm_gfx[_OFF_COMPOUND:_OFF_COMPOUND + 66].decode("utf-16-le").split("\x00")[0]
     except (OSError, ValueError, TypeError):
@@ -164,7 +190,7 @@ def max_rpm():
 
 
 def close():
-    global _mm, _mm_static, _mm_gfx
+    global _mm, _mm_len, _mm_static, _mm_gfx
     for mm in (_mm, _mm_static, _mm_gfx):
         try:
             if mm is not None:
@@ -172,3 +198,4 @@ def close():
         except Exception:
             pass
     _mm = _mm_static = _mm_gfx = None
+    _mm_len = 0

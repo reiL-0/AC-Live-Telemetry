@@ -34,8 +34,8 @@ hilo worker ── POST <url>/api/telemetry/ingest   Authorization: Bearer <toke
 1. Genera el paquete: `python dev/build_zip.py` → `dist/OPRTelemetry-<versión>.zip`.
 2. Arrastra el `.zip` a la ventana de Content Manager y confirma.
 3. Activa la app en *Settings → Assetto Corsa → Python Apps* de CM.
-4. Pon tu **token** en *Settings → Assetto Corsa → Python app settings → OPR Telemetry*.
-   La URL de OPR y el resto de las opciones ya vienen configurados.
+4. Listo: la app trae todo configurado. Con el destino de telemetría en vivo (`extra`) **no hay token que teclear**:
+   la app genera sola una clave y el backend la liga a tu SteamID cuando entras al servidor.
 
 El zip trae `config_defaults.ini` (valores por defecto) pero no `config.ini`, donde CM guarda
 tus cambios. Así **actualizar la app desde CM no borra tu token**.
@@ -82,12 +82,12 @@ Valores por defecto (`config_defaults.ini`):
 [backend graficas]
 url = https://oppenpaddockracing.site  ; solo la direccion base, sin /api/telemetry/ingest
 token =                                 ; el de cada piloto: va en config.ini
-server = *                              ; IP, IP:puerto_http o parte del nombre; "*" = cualquiera
+server =                                ; vacio = solo con el boton "Cambiar destino"
 
 [backend extra]
 url = https://telemetria.oppenpaddockracing.site   ; vacio = destino apagado
-token =                                 ; el de cada piloto (se genera en la pagina principal de ese backend)
-server = 74.208.202.168:8060            ; solo manda aca desde el servidor de OPR
+token = auto                            ; la app genera su propia clave (device_key.txt); o el token de ese backend
+server = *                              ; el backend decide que servidores estan autorizados
 
 [telemetry]
 send_interval_ms = 120                  ; de 50 a 1000 ms
@@ -95,10 +95,14 @@ timeout_seconds = 2.0
 debug = 0                               ; 1 = log de cada envio en py_log.txt (nunca el token)
 ```
 
-Hay un segundo destino, `[backend extra]` (telemetría en vivo y comparativas), que solo recibe datos
-del servidor `74.208.202.168:8060`; desde cualquier otro servidor se usa `graficas`. Ponle tu token
-desde Content Manager. Con la `url` vacía queda apagado. Se elige **un** destino por servidor: en el
-servidor de OPR se manda a `extra` y no a `graficas`. Content Manager solo muestra el archivo si los nombres de sección no llevan `:`,
+El destino por defecto es `[backend extra]` (telemetría en vivo, comparativas y control de carrera). La app le
+dice a qué servidor de AC está conectada (IP, puerto y nombre) y **el backend decide si ese servidor está autorizado**;
+si no lo está, o si no apareces conectado en su leaderboard, el backend le ordena a la app dejar de enviar un rato
+(`Retry-After`) y vuelve a probar sola. Sin servidor (menús, un jugador) no envía. `graficas` (OPR WP) queda solo
+manual. Se elige **un** destino por servidor. Con la `url` vacía el destino queda apagado.
+
+`device_key.txt` (en la carpeta de la app) es tu clave y no viene en el zip: si le pasas la carpeta a un amigo, el backend
+rechaza la clave (es de otro SteamID) y su app genera una propia. Content Manager solo muestra el archivo si los nombres de sección no llevan `:`,
 por eso el separador es un espacio (`[backend:nombre]`, el formato anterior, sigue funcionando).
 
 - Cada backend tiene su propio token; un token solo sirve en su backend.
@@ -138,6 +142,8 @@ Además envía estos campos; un backend puede ignorarlos:
 | `lastLapMs`, `lapTimeMs`, `bestLapMs` | última vuelta, vuelta en curso y mejor de la sesión (ms, reloj de AC) |
 | `car`, `track`, `trackLen` | auto, pista/configuración y largo de pista en metros |
 | `rpmMax` | límite de RPM del auto (`acpmf_static`); 0 si no se pudo leer |
+| `serverIp`, `serverPort`, `serverName` | servidor de AC al que está conectada la app (`ac.getServer*`): el backend decide si está autorizado |
+| `rawPhysics`, `rawGraphics` | páginas `acpmf_physics` (580 B) y `acpmf_graphics` (296 B) en base64; el backend las decodifica y guarda todos los canales (agarre de pista, daño, deslizamiento, carga por rueda...) |
 | `fuel` | combustible en litros (`acpmf_physics`) |
 | `tyreTemp` | temperatura de núcleo de las gomas `[FL, FR, RL, RR]` en °C (`acpmf_physics`) |
 | `tyrePress` | presión de las gomas `[FL, FR, RL, RR]` en psi (`acpmf_physics`) |

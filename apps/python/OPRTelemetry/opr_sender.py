@@ -29,8 +29,16 @@ def _log(msg):
         ac.log("OPR Telemetry: " + msg)
 
 
+def _seconds(v):
+    """Retry-After (segundos) -> int entre 0 y 600; 0 si falta o no es un numero."""
+    try:
+        return max(0, min(600, int(v)))
+    except (TypeError, ValueError):
+        return 0
+
+
 class Sender(object):
-    def __init__(self, url, token, timeout, debug=False):
+    def __init__(self, url, token, timeout, debug=False, regen=None):
         parts = urlsplit(url if "://" in url else "http://" + url)
         self._scheme = parts.scheme or "http"
         self._host = parts.hostname or "localhost"
@@ -39,6 +47,7 @@ class Sender(object):
         self._token = token or ""
         self._timeout = timeout
         self._debug = debug
+        self._regen = regen        # () -> clave nueva; solo con `token = auto` (ver opr_key.py)
 
         self._lock = threading.Lock()
         self._latest = None
@@ -128,6 +137,7 @@ class Sender(object):
             "Content-Type": "application/json",
             "Authorization": "Bearer " + self._token,
         }
+        reason = retry = None
         # Conexion keep-alive: abrir TCP+TLS por cada muestra (~250 ms via Cloudflare) no da para 8 Hz.
         for attempt in (0, 1):
             reused = self._conn is not None
@@ -137,6 +147,8 @@ class Sender(object):
                 self._conn.request("POST", self._path, body=body, headers=headers)
                 resp = self._conn.getresponse()
                 code = resp.status
+                reason = resp.getheader("X-OPR-Reason")
+                retry = resp.getheader("Retry-After")
                 resp.read()
                 break
             except Exception as exc:  # red caida, timeout, DNS, TLS...
@@ -150,17 +162,28 @@ class Sender(object):
                 return
 
         self.last_code = code
+        pause = _seconds(retry)     # orden del servidor (no esta conectado / servidor no autorizado): dejar de enviar
+        if pause:
+            self._cooldown_until = time.monotonic() + pause
         if code == 204:
             self.state = "ok"
             self.sent += 1
         elif code == 409:
             self.state = "waiting"
+        elif code == 403:
+            self.state = "unauthorized"
         elif code == 401:
-            self.state = "bad_token"
-            _log("token invalido (401) - revisa config.ini")
+            if reason == "key-other-steamid" and self._regen:
+                self._token = self._regen()      # la carpeta de la app vino de otro piloto: clave propia
+                self.state = "waiting"
+                _log("la clave era de otro piloto: se genero una propia")
+            else:
+                self.state = "bad_token"
+                _log("token invalido (401) - revisa config.ini")
         elif code == 429:
             self.state = "cooldown"
-            self._cooldown_until = time.monotonic() + 2.0
+            if not pause:
+                self._cooldown_until = time.monotonic() + 2.0
         else:
             self.state = "http_err"
             self.detail = "HTTP {0}".format(code)

@@ -3,7 +3,8 @@
 Content Manager instala un .zip arrastrandolo a su ventana (o Content > Apps)
 si dentro tiene la estructura de la carpeta raiz de AC: apps/python/OPRTelemetry/...
 
-Se excluyen `config.ini` (lleva el token del piloto), `last_backend.txt` y los
+Se excluyen `config.ini` (lleva el token del piloto), `device_key.txt` (la clave propia de cada instalacion),
+`last_backend.txt` y los
 __pycache__: al actualizar la app desde CM no se pisa la config del piloto.
 
     python dev/build_zip.py
@@ -16,7 +17,7 @@ import zipfile
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 APP = os.path.join(ROOT, "apps", "python", "OPRTelemetry")
 SKIP_DIRS = {"__pycache__"}
-SKIP_FILES = {"config.ini", "last_backend.txt"}
+SKIP_FILES = {"config.ini", "last_backend.txt", "device_key.txt"}
 
 
 def main():

@@ -4,6 +4,7 @@
 import http.server
 import os
 import sys
+import tempfile
 import threading
 import time
 import types
@@ -19,11 +20,14 @@ acsys = types.ModuleType("acsys")
 acsys.CS = types.SimpleNamespace(Brake="brake")
 sys.modules["ac"], sys.modules["acsys"] = ac, acsys
 
+import opr_key  # noqa: E402
+import opr_mmap  # noqa: E402
 import opr_sender  # noqa: E402
 import opr_telemetry  # noqa: E402
 
 # --- servidor HTTP/1.1 que cuenta conexiones y peticiones ---
 stats = {"conns": 0, "reqs": 0}
+reply = {"code": 204, "headers": {}}      # lo que contesta el "backend" en este momento
 
 
 class H(http.server.BaseHTTPRequestHandler):
@@ -36,7 +40,9 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         self.rfile.read(int(self.headers["Content-Length"]))
         stats["reqs"] += 1
-        self.send_response(204)
+        self.send_response(reply["code"])
+        for k, v in reply["headers"].items():
+            self.send_header(k, v)
         self.send_header("Content-Length", "0")
         self.end_headers()
 
@@ -54,6 +60,33 @@ s._conn.sock.close()                                         # el servidor "cier
 s._send({"a": 1})
 assert stats["reqs"] == 6 and s.state == "ok", (stats, s.state)   # reintenta con una conexion nueva
 assert stats["conns"] == 2, stats
+
+# --- ordenes del servidor: Retry-After pausa el envio ---
+for code, state, retry, expect in ((409, "waiting", "15", 15), (403, "unauthorized", "300", 300), (409, "waiting", "9999", 600)):
+    reply.update(code=code, headers={"Retry-After": retry})
+    s._cooldown_until = 0.0
+    s._send({"a": 1})
+    left = s._cooldown_until - time.monotonic()
+    assert s.state == state and expect - 2 < left <= expect, (code, s.state, left)   # 9999 s se recorta a 10 min
+
+# --- 401 "clave de otro piloto": con clave automatica se genera otra; sin ella es token invalido ---
+reply.update(code=401, headers={"X-OPR-Reason": "key-other-steamid"})
+s._cooldown_until = 0.0
+s._send({"a": 1})
+assert s.state == "bad_token"
+auto = opr_sender.Sender("http://127.0.0.1:%d" % srv.server_port, "auto_old", 2.0, regen=lambda: "auto_new")
+auto._send({"a": 1})
+assert (auto._token, auto.state) == ("auto_new", "waiting")
+reply.update(code=204, headers={})
+
+# --- clave automatica de la instalacion ---
+d = tempfile.mkdtemp()
+k = opr_key.load(d)
+assert len(k) == 37 and k.startswith("auto_") and opr_key.load(d) == k       # se crea una vez y persiste
+assert opr_key.renew(d) != k and opr_key.load(d) != k
+open(os.path.join(d, opr_key.FILE), "w").write("basura")
+assert opr_key.load(d).startswith("auto_")                                   # archivo danado: genera otra
+assert opr_mmap.raw_pages() == (b"", b"")                                    # fuera de AC no hay memoria compartida
 
 # --- pico de freno entre dos envios ---
 opr_telemetry.sample_peaks(0)
